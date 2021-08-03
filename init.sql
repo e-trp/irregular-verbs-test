@@ -1,14 +1,16 @@
 create table if not exists verbs (
 id INTEGER PRIMARY KEY AUTOINCREMENT,
-infinit VARCHAR(50) NOT NULL,
-simple VARCHAR(50) NOT NULL,
-participl VARCHAR(50) NOT NULL
+infinitive VARCHAR(50) NOT NULL,
+past_simple VARCHAR(50) NOT NULL,
+past_participle VARCHAR(50) NOT NULL
 );
 
 create table if not exists  tests (
 id INTEGER PRIMARY KEY AUTOINCREMENT, 
-datetime_stamp VARCHAR(100)  NOT NULL,
-user_name NOT NULL
+start_datetime VARCHAR(100)  NOT NULL,
+end_datetime VARCHAR(100),
+user_name VARCHAR(100) NOT NULL,
+words_count INTEGER NOT NULL
 );
 
 
