@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/PuerkitoBio/goquery"
 	_ "github.com/mattn/go-sqlite3"
@@ -29,7 +30,7 @@ var query = map[string]string{
 	"select_verbs": "select infinit, simple, participl from verbs order by id",
 	"insert_verb":  "insert into verbs(infinit, simple, participl) values(?, ?, ?)",
 	"insert_error": "insert into errors(test_id, source, user_guess) values(?, ?, ?)",
-	"start_test":   "insert inrto tests(datetime_stamp, user_name) values(CURRENT_TIMESTAMP, 'test')",
+	"start_test":   "insert into tests(datetime_stamp, user_name) values(CURRENT_TIMESTAMP, 'test')",
 }
 
 var host_map = map[string]map[string]string{
@@ -109,14 +110,37 @@ func run_test(verbs []Verbs) (wrong []Verbs, err_count int) {
 
 	reader, err_count := bufio.NewReader(os.Stdin), 0
 
-	for _, index := range rand.Perm(len(verbs)) {
-		fmt.Println("Infinitive ", verbs[index].infinit)
+	ret, err := db.Exec(query["start_test"])
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	test_id, _ := ret.LastInsertId()
+
+	insert_error, err := db.Prepare(query["insert_error"])
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	for _, i := range rand.Perm(len(verbs)) {
+		fmt.Println("Infinitive ", verbs[i].infinit)
 		fmt.Print("Enter past simple form:")
 		simple_guess, _ := reader.ReadString('\n')
 		fmt.Println("Enter past participle form:")
 		participl_guess, _ := reader.ReadString('\n')
-		fmt.Printf("Past simple verb %s your choice %s", verbs[index].simple, simple_guess)
-		fmt.Printf("Past simple verb %s your choice %s", verbs[index].participl, participl_guess)
+		fmt.Printf("Past simple verb %s your choice %s", verbs[i].simple, simple_guess)
+		fmt.Printf("Past simple verb %s your choice %s", verbs[i].participl, participl_guess)
+
+		if strings.EqualFold(verbs[i].simple, simple_guess) {
+			insert_error.Exec(test_id, verbs[i].simple, simple_guess)
+		}
+
+		if strings.EqualFold(verbs[i].participl, participl_guess) {
+			insert_error.Exec(test_id, verbs[i].participl, participl_guess)
+		}
 	}
 	return verbs, 0
 }
