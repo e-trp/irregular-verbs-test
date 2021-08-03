@@ -1,18 +1,35 @@
 package main
 
 import (
+	"bufio"
 	"database/sql"
 	"fmt"
 	"math/rand"
 	"net/http"
+	"os"
 
 	"github.com/PuerkitoBio/goquery"
 	_ "github.com/mattn/go-sqlite3"
 )
 
+const dbname = "verbs.db"
+
+func openDB(dbname string) *sql.DB {
+	db, err := sql.Open("sqlite3", dbname)
+	if err != nil {
+		fmt.Println(err)
+		return nil
+	}
+	return db
+}
+
+var db = openDB(dbname)
+
 var query = map[string]string{
-	"fetch_verbs": "select infinit, simple, participl from verbs order by id",
-	"insert_verb": "insert into verbs(infinit, simple, participl) values(?,?,?)",
+	"select_verbs": "select infinit, simple, participl from verbs order by id",
+	"insert_verb":  "insert into verbs(infinit, simple, participl) values(?, ?, ?)",
+	"insert_error": "insert into errors(test_id, source, user_guess) values(?, ?, ?)",
+	"start_test":   "insert inrto tests(datetime_stamp, user_name) values(CURRENT_TIMESTAMP, 'test')",
 }
 
 var host_map = map[string]map[string]string{
@@ -28,16 +45,10 @@ type Verbs struct {
 	participl string
 }
 
-func fetch_verbs(dbname string) []Verbs {
+func select_verbs() []Verbs {
 	var verbs []Verbs = make([]Verbs, 0, 50)
 
-	db, err := sql.Open("sqlite3", dbname)
-	if err != nil {
-		fmt.Println(err)
-		return nil
-	}
-
-	rows, err := db.Query(query["fetch_verbs"])
+	rows, err := db.Query(query["select_verbs"])
 	if err != nil {
 		fmt.Println(err)
 		return nil
@@ -75,13 +86,7 @@ func pars_site(host string) []Verbs {
 	return verbs
 }
 
-func insert_verbs(dbname string, verbs []Verbs) int {
-
-	db, err := sql.Open("sqlite3", dbname)
-	if err != nil {
-		fmt.Println(err)
-		return 1
-	}
+func insert_verbs(verbs []Verbs) int {
 
 	stmt, err := db.Prepare(query["insert_verb"])
 	if err != nil {
@@ -102,22 +107,24 @@ func insert_verbs(dbname string, verbs []Verbs) int {
 
 func run_test(verbs []Verbs) (wrong []Verbs, err_count int) {
 
-	for _, index := range rand.Perm(len(verbs)) {
-		var simple, participl string
-		fmt.Println("Infinitive ", verbs[index].infinit)
+	reader, err_count := bufio.NewReader(os.Stdin), 0
 
-		fmt.Scanln(&simple)
-		fmt.Scanln(&participl)
-		fmt.Printf("Past simple verb %s your choice %s", verbs[index].simple, simple)
-		fmt.Printf("Past simple verb %s your choice %s", verbs[index].participl, participl)
+	for _, index := range rand.Perm(len(verbs)) {
+		fmt.Println("Infinitive ", verbs[index].infinit)
+		fmt.Print("Enter past simple form:")
+		simple_guess, _ := reader.ReadString('\n')
+		fmt.Println("Enter past participle form:")
+		participl_guess, _ := reader.ReadString('\n')
+		fmt.Printf("Past simple verb %s your choice %s", verbs[index].simple, simple_guess)
+		fmt.Printf("Past simple verb %s your choice %s", verbs[index].participl, participl_guess)
 	}
 	return verbs, 0
 }
 
 func main() {
 
-	// insert_verbs("verbs.db", pars_site("www.worddy.co"))
-	// fmt.Println(fetch_verbs("verbs.db"))
-	// fmt.Println("test")
-	run_test(fetch_verbs("verbs.db"))
+	run_test(select_verbs())
+
+	db.Close()
+
 }
